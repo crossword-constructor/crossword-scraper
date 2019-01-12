@@ -1,9 +1,15 @@
 const mongoose = require('mongoose')
 const ObjectId = mongoose.Schema.Types.ObjectId;
 const Puzzle = new mongoose.Schema({
-  editors: [{type: String, required: true}],
-  authors: [{type: String, required: true}],
-  clues: [{type: ObjectId}],
+  editor: {type: String},
+  title: {type: String},
+  author: {type: String},
+  publisher: {type: String},
+  clues: [{
+    position: {type: String},
+    answer: {type: ObjectId, ref: 'Answer'},
+    clue: {type: ObjectId, ref: 'Clue'}
+  }],
   date: {type: String},
   dimensions: {
     rows: {type: Number},
