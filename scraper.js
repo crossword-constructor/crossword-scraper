@@ -4,10 +4,11 @@ const mongoose = require('mongoose');
 const Clue = require('./Clue');
 const Answer = require('./Answer');
 const Puzzle = require('./Puzzle');
+let prevDate;
 mongoose.connect('mongodb://localhost/historicalCrossword', (err, res) => {
   if (err){console.log('DB CONNECTION FAILED: '+err)}
   else{console.log('DB CONNECTION SUCCESS')}
-  scrape('/PS?date=2/15/1942')
+  scrape('/PS?date=2/21/1957')
 });
 
 function scrape(urlExtension) {
@@ -54,12 +55,13 @@ function scrape(urlExtension) {
     // console.log(clues)
 
     Promise.all(clues.map(currentClue => {
+      // CHeck if this clue or answer is unique
       return Promise.all([Clue.findOne({text: currentClue.text}), Answer.findOne({text: currentClue.answer})]);
     }))
     .then(results => {
       let models = results.reduce((acc, result, i) => {
         // if no clue
-        let newClue;
+        let clue;
         let answer;
         if (!result[0]) {
           clue = new Clue({
@@ -84,12 +86,18 @@ function scrape(urlExtension) {
         // Save ids to each other if unique
         if (!answer.clues.includes(clue._id)) {
           answer.clues.push(clue._id);
+        } else {
+          console.log("answer ", anwer._id, " has repeat clue: ", clue._id, ' and ', answer.clues)
         }
         if (!clue.answers.includes(answer._id)) {
-          clue.answers.push(answer._id)
+          clue.answers.push(answer._id);
         }
-        answer.puzzles.push(newPuzzle._id)
-        clue.puzzles.push(newPuzzle._id)
+        if (!answer.puzzles.includes(newPuzzle._id)) {
+          answer.puzzles.push(newPuzzle._id);
+        }
+        if (!clue.puzzles.includes(newPuzzle._id)) {
+          clue.puzzles.push(newPuzzle._id);
+        }
         newPuzzle.clues.push({clue: clue._id, answer: answer._id, position: clues[i].position})
         // return {answer, clue}
         acc.push(answer)
@@ -100,7 +108,10 @@ function scrape(urlExtension) {
       return Promise.all(models.map(model => model.save()))
     })
     .then(() => {
-      console.log('all models saved moving to ', nextLink)
+      let difference = Date.now() - prevDate;
+      difference = difference / 1000
+      console.log('all models saved moving to ', nextLink, " ", difference)
+      prevDate = Date.now()
       scrape(nextLink)
       // } catch (err) { console.log(err)}
     })
