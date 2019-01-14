@@ -5,10 +5,13 @@ const Clue = require('./Clue');
 const Answer = require('./Answer');
 const Puzzle = require('./Puzzle');
 let prevDate;
+let avg = 0;
+let total = 0;
+let counter = 0;
 mongoose.connect('mongodb://localhost/historicalCrossword', (err, res) => {
   if (err){console.log('DB CONNECTION FAILED: '+err)}
   else{console.log('DB CONNECTION SUCCESS')}
-  scrape('/PS?date=2/21/1957')
+  scrape(`/PS?date=4/30/1963`)
 });
 
 function scrape(urlExtension) {
@@ -109,9 +112,14 @@ function scrape(urlExtension) {
     })
     .then(() => {
       let difference = Date.now() - prevDate;
-      difference = difference / 1000
-      console.log('all models saved moving to ', nextLink, " ", difference)
+      difference = difference / 1000;
+      if (counter !== 0) {
+        total += difference;
+        avg = total / counter
+      }
+      console.log('all models saved moving to ', nextLink, " ", difference, " avg: ", avg)
       prevDate = Date.now()
+      counter++;
       scrape(nextLink)
       // } catch (err) { console.log(err)}
     })
