@@ -14,7 +14,8 @@ const Puzzle = new mongoose.Schema({
   dimensions: {
     rows: {type: Number},
     columns: {type: Number}
-  }
+  },
+  board: {type: Object}
 })
 
 module.exports = mongoose.model('Puzzle', Puzzle);

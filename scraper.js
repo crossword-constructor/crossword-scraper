@@ -8,16 +8,17 @@ let prevDate;
 let avg = 0;
 let total = 0;
 let counter = 0;
-mongoose.connect('mongodb://localhost/historicalCrossword3', (err, res) => {
+mongoose.connect('mongodb://localhost/historicalCrossword', (err, res) => {
   if (err){console.log('DB CONNECTION FAILED: '+err)}
   else{console.log('DB CONNECTION SUCCESS')}
-  scrape(`/PS?date=12/1/2011`)
+  scrape(`/PS?date=2/15/1942`)
 });
 
 function scrape(urlExtension) {
   let newPuzzle = {};
   let puzzleClues = [];
   let board = {};
+  let models = [];
   let nextLink;
   axios.get(`https://www.xwordinfo.com/${urlExtension}`)
   .then(res => {
@@ -55,7 +56,6 @@ function scrape(urlExtension) {
       })
       board[`row${index + 1}`] = newRow;
     })
-    console.log(board)
     newPuzzle.board = board;
     // console.log("rows: ", rows, " columns: ", columns)
     let acrossClues = $('.aclues').children().last().children()
@@ -77,52 +77,62 @@ function scrape(urlExtension) {
       return Promise.all([Clue.findOne({$text: {$search: currentClue.text}}), Answer.findOne({$text: {$search: currentClue.answer}})]);
     }))
     .then(results => {
-      let models = results.reduce((acc, result, i) => {
-        // if no clue
-        let clue;
-        let answer;
-        if (!result[0]) {
-          clue = new Clue({
-            text: clues[i].text,
-            puzzles: [],
-            answers: [],
-          })
-        } else {
-          clue = result[0]
-        }
-
-
-        // if no answer
-        if (!result[1]) {
-          answer = new Answer ({
-            text: clues[i].answer,
-            puzzles: [],
-            clues: [],
-          })
-        } else { answer = result[1] }
-
-        // Save ids to each other if unique
-        if (!answer.clues.includes(clue._id)) {
-          answer.clues.push(clue._id);
-        } else {
-          console.log("answer ", anwer._id, " has repeat clue: ", clue._id, ' and ', answer.clues)
-        }
-        if (!clue.answers.includes(answer._id)) {
-          clue.answers.push(answer._id);
-        }
-        if (!answer.puzzles.includes(newPuzzle._id)) {
-          answer.puzzles.push(newPuzzle._id);
-        }
-        if (!clue.puzzles.includes(newPuzzle._id)) {
-          clue.puzzles.push(newPuzzle._id);
-        }
-        newPuzzle.clues.push({clue: clue._id, answer: answer._id, position: clues[i].position})
-        // return {answer, clue}
-        acc.push(answer)
-        acc.push(clue)
-        return acc;
-      }, [])
-      models.push(newPuzzle)
+      let models = [];
+      if (results.length > 0) {
+        results.forEach((result, index) => {
+          let clue = result[0]
+          let answer = result[1]
+          console.log('clue: ', clue)
+          console.log('answer: ', answer)
+          if (clue && answer) {
+            // Check if the clue has THIS answer
+            let answerFound = clue.answers.some((ans, i, arr) => {
+              if (ans.answer === answer._id) {
+                arr[i].count++;
+                return true;
+              } return false;
+            })
+            if (!answerFound) {
+              clue.answers.push({answer: answer._id, count: 1})
+            }
+            // Check if the answer
+            let clueFound = answer.clues.some((cl, i, arr) => {
+              if (cl.clue === clue._id) {
+                arr[i].count++;
+                return true;
+              } return false;
+            })
+            if (!clueFound) {
+              anser.clues.push({clue: clue._id, count: 1})
+            }
+            console.log('clue should have answer with count 2')
+            console.log(clue)
+          } else if (clue) { // THis is a new answer for an existing clue
+            answer = new Answer({
+              text: clues[index].answer,
+              clues: [{clue: clue._id, count: 1}]
+            })
+            clue.answers.push({answer: answer._id, count: 1})
+          } else if (answer){ // This is a new clue for an existing answer
+            clue = new Clue({
+              text: clues[index].clue,
+              answers: [{answer: answer._id, count: 1}]
+            })
+            answer.clues.push({clue: clue._id, count: 1})
+          } else { // Both the clue and the answer are new
+            answer = new Answer({
+              text: clues[index].answer,
+            })
+            clue = new Clue({
+              text: clues[index].clue,
+            })
+            answer.clues = [{clue: clue._id, count: 1}]
+            clue.answers = [{answer: answer._id, count: 1}]
+          }
+          models.push(clue)
+          models.push(answer)
+        })
+      }
       return Promise.all(models.map(model => model.save()))
     })
     .then(() => {
@@ -135,7 +145,7 @@ function scrape(urlExtension) {
       console.log('all models saved moving to ', nextLink, " ", difference, " avg: ", avg)
       prevDate = Date.now()
       counter++;
-      // scrape(nextLink)
+      scrape(nextLink)
       // } catch (err) { console.log(err)}
     })
     .catch(err => console.log(err))
