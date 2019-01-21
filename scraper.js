@@ -8,15 +8,16 @@ let prevDate;
 let avg = 0;
 let total = 0;
 let counter = 0;
-mongoose.connect('mongodb://localhost/historicalCrossword', (err, res) => {
+mongoose.connect('mongodb://localhost/historicalCrossword3', (err, res) => {
   if (err){console.log('DB CONNECTION FAILED: '+err)}
   else{console.log('DB CONNECTION SUCCESS')}
-  scrape(`/PS?date=4/30/1963`)
+  scrape(`/PS?date=12/1/2011`)
 });
 
 function scrape(urlExtension) {
   let newPuzzle = {};
   let puzzleClues = [];
+  let board = {};
   let nextLink;
   axios.get(`https://www.xwordinfo.com/${urlExtension}`)
   .then(res => {
@@ -42,6 +43,20 @@ function scrape(urlExtension) {
         columns: $('#PuzTable').children().children().first().children().length
       }
     })
+    let puzzle = $("#PuzTable").children().first();
+    puzzle.children().each(function(index, el){
+      let newRow = [];
+      $(this).children().each(function(subIndex, subEl) {
+        if ($(this).hasClass('black')) {
+          newRow.push('#BlackSquare#')
+        } else {
+          newRow.push($(this).children().last().text())
+        }
+      })
+      board[`row${index + 1}`] = newRow;
+    })
+    console.log(board)
+    newPuzzle.board = board;
     // console.log("rows: ", rows, " columns: ", columns)
     let acrossClues = $('.aclues').children().last().children()
     acrossClues.each(function(index, el){
@@ -59,7 +74,7 @@ function scrape(urlExtension) {
 
     Promise.all(clues.map(currentClue => {
       // CHeck if this clue or answer is unique
-      return Promise.all([Clue.findOne({text: currentClue.text}), Answer.findOne({text: currentClue.answer})]);
+      return Promise.all([Clue.findOne({$text: {$search: currentClue.text}}), Answer.findOne({$text: {$search: currentClue.answer}})]);
     }))
     .then(results => {
       let models = results.reduce((acc, result, i) => {
@@ -120,7 +135,7 @@ function scrape(urlExtension) {
       console.log('all models saved moving to ', nextLink, " ", difference, " avg: ", avg)
       prevDate = Date.now()
       counter++;
-      scrape(nextLink)
+      // scrape(nextLink)
       // } catch (err) { console.log(err)}
     })
     .catch(err => console.log(err))
