@@ -6,4 +6,5 @@ const Clue = new mongoose.Schema({
   puzzles: [{type: ObjectId, ref: 'Puzzle'}],
 })
 
+Clue.index({text: 'text'})
 module.exports = mongoose.model('Clue', Clue);

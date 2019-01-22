@@ -57,21 +57,15 @@ function scrape(urlExtension) {
       board[`row${index + 1}`] = newRow;
     })
     newPuzzle.board = board;
-    // console.log("rows: ", rows, " columns: ", columns)
-    let acrossClues = $('.aclues').children().last().children()
-    acrossClues.each(function(index, el){
-      let clue = parseClue($(this), "A")
-      // console.log(clue)
-      clues.push(clue)
-    })
-    let downClues = $('.dclues').children().last().children()
-    downClues.each(function(index, el){
-      let clue = parseClue($(this), "D")
-      clues.push(clue)
-      // console.log(clue)
+    $(".clues").each(function(index, el){
+      $(this).children().last().children().each(function(i, e){
+        // console.log("THIS ,", $(this).text())
+        let clue = parseClue($(this), $(this).parent().siblings().first().text() === 'Across' ? "A" : "D")
+        clues.push(clue)
+        // console.log(clue)
+      })
     })
     // console.log(clues)
-
     Promise.all(clues.map(currentClue => {
       // CHeck if this clue or answer is unique
       return Promise.all([Clue.findOne({$text: {$search: currentClue.text}}), Answer.findOne({$text: {$search: currentClue.answer}})]);
@@ -82,12 +76,11 @@ function scrape(urlExtension) {
         results.forEach((result, index) => {
           let clue = result[0]
           let answer = result[1]
-          console.log('clue: ', clue)
-          console.log('answer: ', answer)
           if (clue && answer) {
             // Check if the clue has THIS answer
             let answerFound = clue.answers.some((ans, i, arr) => {
               if (ans.answer === answer._id) {
+                console.log('check: answer', answer._id)
                 arr[i].count++;
                 return true;
               } return false;
@@ -105,8 +98,6 @@ function scrape(urlExtension) {
             if (!clueFound) {
               anser.clues.push({clue: clue._id, count: 1})
             }
-            console.log('clue should have answer with count 2')
-            console.log(clue)
           } else if (clue) { // THis is a new answer for an existing clue
             answer = new Answer({
               text: clues[index].answer,
@@ -129,6 +120,19 @@ function scrape(urlExtension) {
             answer.clues = [{clue: clue._id, count: 1}]
             clue.answers = [{answer: answer._id, count: 1}]
           }
+          models.push(clue)
+          models.push(answer)
+        })
+      } else {
+        clues.forEach(currentClue => {
+          answer = new Answer({
+            text: currentClue.answer,
+          })
+          clue = new Clue({
+            text: currentClue.clue,
+          })
+          answer.clues = [{clue: clue._id, count: 1}]
+          clue.answers = [{answer: answer._id, count: 1}]
           models.push(clue)
           models.push(answer)
         })

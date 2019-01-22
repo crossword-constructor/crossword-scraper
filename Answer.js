@@ -6,4 +6,6 @@ const Answer = new mongoose.Schema({
   puzzles: [{type: ObjectId, ref: 'Puzzle'},]
 })
 
+Answer.index({text: 'text'})
+
 module.exports = mongoose.model('Answer', Answer);
