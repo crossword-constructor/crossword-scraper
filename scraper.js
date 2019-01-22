@@ -4,6 +4,11 @@ const mongoose = require('mongoose');
 const Clue = require('./Clue');
 const Answer = require('./Answer');
 const Puzzle = require('./Puzzle');
+
+// @TODO
+// 1. Add puzzle ids to clues and answers
+// 2. Add clue-answer pair to puzzle
+// newPuzzle.clues.push({clue: clue._id, answer: answer._id, position: clues[i].position})
 let prevDate;
 let avg = 0;
 let total = 0;
@@ -76,11 +81,11 @@ function scrape(urlExtension) {
         results.forEach((result, index) => {
           let clue = result[0]
           let answer = result[1]
-          if (clue && answer) {
+          if (clue && answer) { // IF both the answer and clue exist
             // Check if the clue has THIS answer
             let answerFound = clue.answers.some((ans, i, arr) => {
               if (ans.answer === answer._id) {
-                console.log('check: answer', answer._id)
+                console.log('check: answer', answer._id, ' and clue id ', clue._id)
                 arr[i].count++;
                 return true;
               } return false;
@@ -96,7 +101,7 @@ function scrape(urlExtension) {
               } return false;
             })
             if (!clueFound) {
-              anser.clues.push({clue: clue._id, count: 1})
+              answer.clues.push({clue: clue._id, count: 1})
             }
           } else if (clue) { // THis is a new answer for an existing clue
             answer = new Answer({
@@ -106,7 +111,7 @@ function scrape(urlExtension) {
             clue.answers.push({answer: answer._id, count: 1})
           } else if (answer){ // This is a new clue for an existing answer
             clue = new Clue({
-              text: clues[index].clue,
+              text: clues[index].text,
               answers: [{answer: answer._id, count: 1}]
             })
             answer.clues.push({clue: clue._id, count: 1})
@@ -115,28 +120,44 @@ function scrape(urlExtension) {
               text: clues[index].answer,
             })
             clue = new Clue({
-              text: clues[index].clue,
+              text: clues[index].text,
             })
             answer.clues = [{clue: clue._id, count: 1}]
             clue.answers = [{answer: answer._id, count: 1}]
           }
+          clue.puzzles.push(newPuzzle._id)
+          answer.puzzles.push(newPuzzle._id)
           models.push(clue)
           models.push(answer)
         })
       } else {
-        clues.forEach(currentClue => {
-          answer = new Answer({
-            text: currentClue.answer,
-          })
-          clue = new Clue({
-            text: currentClue.clue,
-          })
-          answer.clues = [{clue: clue._id, count: 1}]
-          clue.answers = [{answer: answer._id, count: 1}]
-          models.push(clue)
-          models.push(answer)
-        })
+        console.log('no clues found')
+        // clues.forEach(currentClue => {
+        //   console.log(currentClue)
+        //   answer = new Answer({
+        //     text: currentClue.answer,
+        //   })
+        //   clue = new Clue({
+        //     text: currentClue.text,
+        //   })
+        //   answer.clues = [{clue: clue._id, count: 1}]
+        //   clue.answers = [{answer: answer._id, count: 1}]
+        //   answer.puzzles = [newPuzzle._id]
+        //   clue.puzzles = [newPuzzle._id]
+        //   models.push(clue)
+        //   models.push(answer)
+        // })
       }
+      let puzzleCluesIndex = 0;
+      puzzleClues = models.reduce((acc, cur, i, arr)  => {
+        if (i%2 === 0) {
+          acc.push({clue: arr[i]._id, answer: arr[i+1]._id, position: clues[puzzleCluesIndex].position});
+          puzzleCluesIndex++;
+        }
+        return acc;
+      }, [])
+      newPuzzle.clues = puzzleClues;
+      models.push(newPuzzle)
       return Promise.all(models.map(model => model.save()))
     })
     .then(() => {
